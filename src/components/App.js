@@ -6,6 +6,7 @@ const contractProperties = [
   // 'expectedRate',
   'txCount',  // added; maybe need to add more
   // 'halfWidth',
+  'liquidationBlockNumber',
   'blockWaitTime',
   'minTxToActivate',
   'minBalanceToActivate',
@@ -125,7 +126,7 @@ class App extends Component {
         propertyMap['lastRate'] = propertyMap['latestRates'].filter(elt => elt !== 0).reverse()[0]
         // also get accounts[0] balance
         const bal = await rdcInstance.balanceOf(accounts[0])
-        propertyMap['userAcctBalance'] = this.state.web3.fromWei(bal.toNumber())
+        propertyMap['userAcctBalance'] = Number(this.state.web3.fromWei(bal.toNumber())) // this gets set to a string when it is 0 for some reason
         // also get the new stateBytes field
         /*
         VALUES:
@@ -159,6 +160,7 @@ class App extends Component {
         // set the fetched properties accumulated into this.state
         this.setState(propertyMap)
 
+        window.bal = this.state.userAcctBalance
       }
     })
   }
@@ -285,26 +287,26 @@ class App extends Component {
     //   cashOutButton = <button onClick={this.handleCashOutButton}>Claim equitable cashout</button>
     // }
 
-    let cashoutArea
-    if (this.state.state === "Liquidating") {
-      cashoutArea = <div>Contract is liquidating - You can now withdraw your share of funds
-                      <div>Liquidation block number: {this.state.liquidationBlockNumber}</div>
-                      <div>Liquidation block wait time: {this.state.blockWaitTime}</div>
-                      <button onClick={this.handleCashOutButton}>Claim equitable cashout</button>
-                    </div>
-    }
+    // let cashoutArea
+    // if (this.state.state === "Liquidating") {
+    //   cashoutArea = <div>Contract is liquidating - You can now withdraw your share of funds
+    //                   <div>Liquidation block number: {this.state.liquidationBlockNumber}</div>
+    //                   <div>Liquidation block wait time: {this.state.blockWaitTime}</div>
+    //                   <button onClick={this.handleCashOutButton}>Claim equitable cashout</button>
+    //                 </div>
+    // }
 
-    let ownerArea
-    if (this.state.userIsOwner) {
-      ownerArea = <div>Welcome to the secret Owner area :)
-                    <br /><br />
-                    <button onClick={this.handleUnlockMutex} disabled={!this.state.txLockMutex}>Unlock txLockMutex - only active if txLockMutex is LOCKED</button>
-                    <br /><br />
-                    <button onClick={this.handleEquitableLiquidation}>Trigger equitable liquidation</button>
-                    <br /><br />
-                    <button onClick={this.handleNextBlock}><strong>Mine a block</strong></button>
-                  </div>
-    }
+    // let ownerArea
+    // if (this.state.userIsOwner) {
+    //   ownerArea = <div>Welcome to the secret Owner area :)
+    //                 <br /><br />
+    //                 <button onClick={this.handleUnlockMutex} disabled={!this.state.txLockMutex}>Unlock txLockMutex - only active if txLockMutex is LOCKED</button>
+    //                 <br /><br />
+    //                 <button onClick={this.handleEquitableLiquidation}>Trigger equitable liquidation</button>
+    //                 <br /><br />
+    //                 <button onClick={this.handleNextBlock}><strong>Mine a block</strong></button>
+    //               </div>
+    // }
 
     return (
       <div className="App">
@@ -318,11 +320,17 @@ class App extends Component {
               <Grid.Column>
                 <Header>Info</Header>
                 <Segment.Group>
-                  <Segment>Current block number: {this.state.lastBlockNumber}</Segment>
-                  <Segment>Last transaction rate: {this.state.lastRate}</Segment>
-                  <Segment>Transaction count: {this.state.txCount}</Segment>
                   <Segment><strong>Contract State:</strong> {this.state.state}</Segment>
-                  <Segment>Transaction mutex: {this.state.txLockMutex ? "Locked" : "Unlocked"}</Segment>
+                  <Segment><strong>Current block number:</strong> {this.state.lastBlockNumber}</Segment>
+                  <Segment><strong>Last transaction rate:</strong> {this.state.lastRate}</Segment>
+                  <Segment><strong>Transaction count:</strong> {this.state.txCount}</Segment>
+                  <Segment><strong>Transaction mutex:</strong> {this.state.txLockMutex ? "Locked" : "Unlocked"}</Segment>
+                  {this.state.state === 'Liquidating' &&
+                    <Segment><strong>Liquidation block number:</strong> {this.state.liquidationBlockNumber}</Segment>
+                  }
+                  {this.state.state === 'Liquidating' &&
+                    <Segment><strong>Liquidation block wait time:</strong> {this.state.blockWaitTime}</Segment>
+                  }
                 </Segment.Group>
               </Grid.Column>
               <Grid.Column>
@@ -332,6 +340,7 @@ class App extends Component {
                   name="userPegInValue"
                   value={this.state.userPegInValue}
                   onChange={this.handleChange}
+                  disabled={this.state.state === 'Liquidating' && (this.state.lastBlockNumber < (this.state.liquidationBlockNumber + this.state.blockWaitTime))}
                   action={{
                     content: 'Peg in to RDC',
                     color: 'teal',
@@ -345,6 +354,7 @@ class App extends Component {
                   name="userPegInValue"
                   value={this.state.userPegOutValue}
                   onChange={this.handleChange}
+                  disabled={this.state.state !== 'Active'}
                   action={{
                     content: 'Peg out to ETH',
                     color: 'red',
@@ -353,19 +363,42 @@ class App extends Component {
                     onClick: this.handlePegOutButton,
                   }}
                 />
+                <Button
+                  disabled={this.state.state !== 'Liquidating' || this.state.userAcctBalance === 0}
+                  onClick={this.handleCashOutButton}
+                >
+                Claim equitable payout
+                </Button>
+                {this.state.userIsOwner && <Header>Owner Actions</Header>}
+                {this.state.userIsOwner && 
+                  <Button
+                  disabled={!this.state.txLockMutex}
+                  onClick={this.handleUnlockMutex}
+                  >
+                  Emergency unlock transaction mutex
+                  </Button>
+                }
+                {this.state.userIsOwner && 
+                  <Button
+                  onClick={this.handleEquitableLiquidation}
+                  >
+                  Trigger equitable liquidation
+                  </Button>
+                }
+                {this.state.userIsOwner && 
+                  <Button
+                  onClick={this.handleNextBlock}
+                  >
+                  Mine a block (dev chain)
+                  </Button>
+                }
               </Grid.Column>
             </Grid.Row>
           </Grid>
           </Segment>
-        {/* <div>Account RDC Balance: {this.state.userAcctBalance}</div> */}
-        {/* <div>User is owner?: {this.state.userIsOwner ? "True" : "False"}</div> */}
-        <br /><br />
-        
-        
-        <br /><br />
-        {cashoutArea}
-        <br /><br />
-        {ownerArea}
+        <div>Account RDC Balance: {this.state.userAcctBalance}</div>
+        <div>User is owner?: {this.state.userIsOwner ? "True" : "False"}</div>
+        {/*TODO: put a footer down here with the info we move out of the header (about, source)*/}
       </main>
       </div>
     );

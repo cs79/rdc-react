@@ -539,7 +539,6 @@ contract RDC is MintableToken, BurnableToken {
      */
     function nextBlock()
     public
-    view
     returns(bool)
     {
         blockCounter += 1;
