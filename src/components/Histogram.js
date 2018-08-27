@@ -42,7 +42,6 @@ const Histogram = props => {
     var high = Math.max(...rates)
     var step = Math.round((high - low) / 10)
     return (
-        <div className="graphic-container">
             <Bar data={{
                 labels: [`${low}-${low+step}`, `${low+2*step+1}-${low+3*step}`, `${low+3*step+1}-${low+4*step}`, `${low+4*step+1}-${low+5*step}`, `${low+5*step+1}-${low+6*step}`, `${low+6*step+1}-${low+7*step}`, `${low+7*step+1}-${low+8*step}`, `${low+8*step+1}-${low+9*step}`, `${low+9*step+1}-${low+10*step}`, `${low+10*step+1}-${high}`],
                 datasets: [
@@ -52,7 +51,6 @@ const Histogram = props => {
                     }
                 ]
             }} />
-        </div>
     )
 }
 

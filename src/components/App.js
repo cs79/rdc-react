@@ -24,7 +24,7 @@ const contractProperties = [
 
 import contract from 'truffle-contract'
 import React, { Component } from 'react'
-import { Segment, Button, Container, Input, Grid, Header } from 'semantic-ui-react'
+import { Segment, Button, Form, Message, Grid, Header } from 'semantic-ui-react'
 import RDCContract from '../../build/contracts/RDC.json'
 import getWeb3 from '../utils/getWeb3'
 
@@ -34,8 +34,9 @@ import '../css/pure-min.css'
 import '../App.css'
 
 import Navbar from './Navbar'
-import Histogram from './Histogram'
-import LineGraph from './LineGraph'
+import Graphs from './Graphs'
+import Footer from './Footer'
+
 
 class App extends Component {
   constructor(props) {
@@ -309,97 +310,105 @@ class App extends Component {
     // }
 
     return (
-      <div className="App">
-      <Navbar />
-      <main className="container">
-        <LineGraph latestRates={this.state.latestRates.slice()} />
-        <Histogram latestRates={this.state.latestRates.slice()} />
-        <Segment>
-          <Grid columns={2} divided>
-            <Grid.Row>
-              <Grid.Column>
-                <Header>Info</Header>
-                <Segment.Group>
-                  <Segment><strong>Contract State:</strong> {this.state.state}</Segment>
-                  <Segment><strong>Current block number:</strong> {this.state.lastBlockNumber}</Segment>
-                  <Segment><strong>Last transaction rate:</strong> {this.state.lastRate}</Segment>
-                  <Segment><strong>Transaction count:</strong> {this.state.txCount}</Segment>
-                  <Segment><strong>Transaction mutex:</strong> {this.state.txLockMutex ? "Locked" : "Unlocked"}</Segment>
-                  {this.state.state === 'Liquidating' &&
-                    <Segment><strong>Liquidation block number:</strong> {this.state.liquidationBlockNumber}</Segment>
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column'}}>
+        <Navbar userAcctBalance={this.state.userAcctBalance} userIsOwner={this.state.userIsOwner} />
+        <Segment attached padded='very' style={{ flex: '1', alignSelf: 'center', maxWidth: '1600px' }}>
+          <Graphs latestRates={this.state.latestRates} />
+          <Segment>
+            <Grid columns={2} divided stackable>
+              <Grid.Row>
+                <Grid.Column style={{padding: '2em'}}>
+                  <Header size='huge'>Info</Header>
+                  <Segment.Group>
+                    <Segment><strong>Contract State:</strong> {this.state.state}</Segment>
+                    <Segment><strong>Current block number:</strong> {this.state.lastBlockNumber}</Segment>
+                    <Segment><strong>Last transaction rate:</strong> {this.state.lastRate}</Segment>
+                    <Segment><strong>Transaction count:</strong> {this.state.txCount}</Segment>
+                    <Segment><strong>Transaction mutex:</strong> {this.state.txLockMutex ? "Locked" : "Unlocked"}</Segment>
+                    {this.state.state === 'Liquidating' &&
+                      <Segment><strong>Liquidation block number:</strong> {this.state.liquidationBlockNumber}</Segment>
+                    }
+                    {this.state.state === 'Liquidating' &&
+                      <Segment><strong>Liquidation block wait time:</strong> {this.state.blockWaitTime}</Segment>
+                    }
+                  </Segment.Group>
+                </Grid.Column>
+                <Grid.Column style={{padding: '2em'}}>
+                  <Header size='huge'>Actions</Header>
+                  <Form>
+                    <Form.Input
+                      type="numeric"
+                      name="userPegInValue"
+                      value={this.state.userPegInValue}
+                      onChange={this.handleChange}
+                      disabled={this.state.state === 'Liquidating' && (this.state.lastBlockNumber < (this.state.liquidationBlockNumber + this.state.blockWaitTime))}
+                      action={{
+                        content: 'Peg in to RDC',
+                        color: 'teal',
+                        labelPosition: 'left',
+                        icon: 'caret square right',
+                        onClick: this.handlePegInButton,
+                      }}
+                    />
+                    <Form.Input
+                      type="numeric"
+                      name="userPegOutValue"
+                      value={this.state.userPegOutValue}
+                      onChange={this.handleChange}
+                      disabled={this.state.state !== 'Active' || this.state.userAcctBalance === 0}
+                      action={{
+                        content: 'Peg out to ETH',
+                        color: 'red',
+                        labelPosition: 'left',
+                        icon: 'caret square left outline',
+                        onClick: this.handlePegOutButton,
+                      }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        disabled={this.state.state !== 'Liquidating' || this.state.userAcctBalance === 0}
+                        onClick={this.handleCashOutButton}
+                        content='Claim equitable payout'
+                      />
+                    </div>
+                  </Form>
+                  {
+                    this.state.userIsOwner &&
+                    <Message>
+                      <Header size='large' style={{ marginBottom: '0.5em' }}>Owner Actions</Header>
+                      <Form>
+                        <Form.Button
+                          basic
+                          color='red'
+                          disabled={!this.state.txLockMutex}
+                          onClick={this.handleUnlockMutex}
+                        >
+                          Emergency unlock transaction mutex
+                        </Form.Button>
+                        <Form.Button
+                          basic
+                          color='red'
+                          disabled={!this.state.state === 'liquidating'}
+                          onClick={this.handleEquitableLiquidation}
+                        >
+                          Trigger equitable liquidation
+                        </Form.Button>
+                        <Form.Button
+                          basic
+                          color='black'
+                          onClick={this.handleNextBlock}
+                        >
+                          Mine a block (dev chain)
+                        </Form.Button>
+                      </Form>
+                    </Message>
                   }
-                  {this.state.state === 'Liquidating' &&
-                    <Segment><strong>Liquidation block wait time:</strong> {this.state.blockWaitTime}</Segment>
-                  }
-                </Segment.Group>
-              </Grid.Column>
-              <Grid.Column>
-                <Header>Actions</Header>
-                <Input
-                  type="numeric"
-                  name="userPegInValue"
-                  value={this.state.userPegInValue}
-                  onChange={this.handleChange}
-                  disabled={this.state.state === 'Liquidating' && (this.state.lastBlockNumber < (this.state.liquidationBlockNumber + this.state.blockWaitTime))}
-                  action={{
-                    content: 'Peg in to RDC',
-                    color: 'teal',
-                    labelPosition: 'left',
-                    icon: 'caret square right',
-                    onClick: this.handlePegInButton,
-                  }}
-                />
-                <Input
-                  type="numeric"
-                  name="userPegInValue"
-                  value={this.state.userPegOutValue}
-                  onChange={this.handleChange}
-                  disabled={this.state.state !== 'Active'}
-                  action={{
-                    content: 'Peg out to ETH',
-                    color: 'red',
-                    labelPosition: 'left',
-                    icon: 'caret square left outline',
-                    onClick: this.handlePegOutButton,
-                  }}
-                />
-                <Button
-                  disabled={this.state.state !== 'Liquidating' || this.state.userAcctBalance === 0}
-                  onClick={this.handleCashOutButton}
-                >
-                Claim equitable payout
-                </Button>
-                {this.state.userIsOwner && <Header>Owner Actions</Header>}
-                {this.state.userIsOwner && 
-                  <Button
-                  disabled={!this.state.txLockMutex}
-                  onClick={this.handleUnlockMutex}
-                  >
-                  Emergency unlock transaction mutex
-                  </Button>
-                }
-                {this.state.userIsOwner && 
-                  <Button
-                  onClick={this.handleEquitableLiquidation}
-                  >
-                  Trigger equitable liquidation
-                  </Button>
-                }
-                {this.state.userIsOwner && 
-                  <Button
-                  onClick={this.handleNextBlock}
-                  >
-                  Mine a block (dev chain)
-                  </Button>
-                }
-              </Grid.Column>
-            </Grid.Row>
-          </Grid>
+                </Grid.Column>
+              </Grid.Row>
+            </Grid>
           </Segment>
-        <div>Account RDC Balance: {this.state.userAcctBalance}</div>
-        <div>User is owner?: {this.state.userIsOwner ? "True" : "False"}</div>
-        {/*TODO: put a footer down here with the info we move out of the header (about, source)*/}
-      </main>
+        </Segment>
+        <Footer />
       </div>
     );
   }
