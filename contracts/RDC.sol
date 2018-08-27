@@ -49,7 +49,7 @@ contract RDC is MintableToken, BurnableToken {
     bool public txLockMutex; // possibly redundant with transfer() calls; made public for testing
     
     // to facilitate frontend testing
-    uint256 blockCounter;
+    uint256 public blockCounter;
 
 
 
@@ -122,6 +122,8 @@ contract RDC is MintableToken, BurnableToken {
             availablePayout = 0;
             haircut = 0;
             txCountSinceLastReset = 0;
+            currentRateCeiling = SEED_RATE;
+            currentRateBuffer = SEED_RATE_BUF;
             state = State.Funding;
             stateBytes = bytes2(keccak256("Funding"));
             txLockMutex = false;

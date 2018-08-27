@@ -114,14 +114,9 @@ contract TestRDC {
     //     }
     // }
 
-    function testInsecureRandom() public {
-        // uint256 _low = 50;
-        uint256 _high = 150;
-        uint256 _result = rdc.insecureRandom(_high);
-        // Assert.isAtLeast(_result, _low, "PRN should be at least 50");
-        Assert.isAtMost(_result, _high, "PRN should be at most 150");
-    }
-
+    /** @dev Test that multiple random rates fall within the expected ranges
+        @dev This test covers insecureRandom() which is utilized several times in the randomRate() function
+     */
     function testMultipleInsecureRandom() public {
         uint256[5] memory _highs = [uint(2), uint(1001), uint(250), uint(205), uint(99999910901)];
         uint256 _cur_val;
@@ -135,7 +130,7 @@ contract TestRDC {
     /** @dev Test that an address can properly receive RDC tokens in exchange for ETH
         @dev This test is also used to ensure that the contract state can move from Funding to Active when the minBalanceToActivate is sent
         @dev (Subsequent tests to peg out would fail if the contract state did not change to Active)
-        @dev This test covers the pegIn() function
+        @dev This test covers the pegIn() function directly, and the randomRate() function indirectly (which is also partially tested in the previous test function)
      */
     function testPegIn() public {
         rdc.pegIn.value(15 finney).gas(300000)();  // actual gas cost is something like 175,000 it appears
@@ -265,6 +260,31 @@ contract TestRDC {
         rdc.pegIn.value(15 finney).gas(300000)();
         Assert.equal(rdc.mintingFinished(), false, "Minting should be allowed again after contract reset");
     }
+
+    /** @dev This tests that the length-16 array of latest rates can be fetched from the contract
+        @dev This test covers the getLatestRates() function
+     */
+    function testGetLatestRates() public {
+        uint256[16] memory _latest = rdc.getLatestRates();
+        Assert.equal(_latest.length, 16, "Should have fetched a length-16 array");
+    }
+
+    /** @dev This tests that the byte representation flag for the contract state can be fetched
+        @dev This test covers the getStateBytes() function
+     */
+    function testGetStateBytes() public {
+        bytes2 _state = rdc.getStateBytes();
+        bool _match = _state == bytes2(keccak256("Active"));
+        Assert.equal(_match, true, "stateBytes should be equal to the byte signature for Active");
+    }
+
+    function testNextBlock() public {
+        uint256 _cur_block = rdc.blockCounter();
+        rdc.nextBlock();
+        Assert.equal((_cur_block + 1), rdc.blockCounter(), "blockCounter should have increased by 1");
+    }
+
+
 
     /** @dev fallback function */
     function() external payable {}
