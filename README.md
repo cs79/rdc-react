@@ -67,7 +67,7 @@ In order to test the frontend functionality using MetaMask, copy the seed phrase
 
 ### Interacting with the Application
 
-The frontend provides some interactive graphics showing the latest transaction rates between RDC and ETH (which will be populated once transactions into/out of the randomcoin token have been made) along with some information on the state of the contract and the chain it is connected to.  Users are initially provided with at least two interactive fields which allow them to specify an amount of ether they would like to peg in to the contract, or an amount of randomcoin they would like to peg out.
+The frontend provides some interactive graphics showing the latest transaction rates between RDC and ETH (which will be populated once transactions into/out of the randomcoin token have been made) along with some information on the state of the contract and the chain it is connected to.  Users are initially provided with at least one interactive field which allows them to specify an amount of ether they would like to peg in to the contract.  Once they have obtained some randomcoin tokens in exchange for ether, two additional interactive features are enabled which allow the user to either peg out some amount of RDC from the contract, or to send some RDC to another address.
 
 If the contract is in the "Liquidating" state, users will additionally be presented with a button which allows them to claim, if they wish, their equitable share of the ETH in the contract, proportional to their holdings of the randomcoin token.
 

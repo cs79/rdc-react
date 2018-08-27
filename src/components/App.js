@@ -3,41 +3,29 @@ const contractProperties = [
   'minimumPegInBaseAmount',
   'minimumPegInMultiplier',
   'averageRate',
-  // 'expectedRate',
-  'txCount',  // added; maybe need to add more
-  // 'halfWidth',
+  'txCount',
   'liquidationBlockNumber',
   'blockWaitTime',
   'minTxToActivate',
   'minBalanceToActivate',
   'maxRateIndex',
   'rateArrayFull',
-  //'state',
-  'txLockMutex', // not sure that this is actually working
+  'txLockMutex',
 ]
 
-/*
-  TODO:
-  - maybe set a "global" default account if I can
-  - 
-*/
-
-import contract from 'truffle-contract'
+// React imports + custom components
 import React, { Component } from 'react'
 import { Segment, Button, Form, Message, Grid, Header } from 'semantic-ui-react'
-import RDCContract from '../../build/contracts/RDC.json'
-import getWeb3 from '../utils/getWeb3'
-
-import '../css/oswald.css'
-import '../css/open-sans.css'
-import '../css/pure-min.css'
-import '../App.css'
-
 import Navbar from './Navbar'
 import Graphs from './Graphs'
 import Footer from './Footer'
 
+// smart contract imports
+import getWeb3 from '../utils/getWeb3'
+import contract from 'truffle-contract'
+import RDCContract from '../../build/contracts/RDC.json'
 
+// main App component
 class App extends Component {
   constructor(props) {
     super(props)
@@ -69,12 +57,15 @@ class App extends Component {
       userAcctBalance: 0,  // not a state variable in RDC.sol; just captured here for frontend
       userIsOwner: false,
       lastBlockNumber: 0,
+      toAddress: '',      // used for transfer functionality
+      transferAmount: '',  // used for transfer functionality
       web3: null,
     }
     this.getUpdatedState = this.getUpdatedState.bind(this) // needed or no ?
     this.handleChange = this.handleChange.bind(this)
     this.handlePegInButton = this.handlePegInButton.bind(this)
     this.handlePegOutButton = this.handlePegOutButton.bind(this)
+    this.handleTransferButton = this.handleTransferButton.bind(this)
     this.handleCashOutButton = this.handleCashOutButton.bind(this)
     this.handleUnlockMutex = this.handleUnlockMutex.bind(this)
     this.handleEquitableLiquidation = this.handleEquitableLiquidation.bind(this)
@@ -84,7 +75,6 @@ class App extends Component {
   componentWillMount() {
     // Get network provider and web3 instance.
     // See utils/getWeb3 for more info.
-
     getWeb3
     .then(results => {
       this.setState({
@@ -160,8 +150,6 @@ class App extends Component {
 
         // set the fetched properties accumulated into this.state
         this.setState(propertyMap)
-
-        window.bal = this.state.userAcctBalance
       }
     })
   }
@@ -206,6 +194,24 @@ class App extends Component {
         const val = rdcInstance.pegOut(this.state.web3.toWei(this.state.userPegOutValue), {from: accounts[0]})
         console.log(val)
         this.setState({ userPegOutValue: '' })
+      }
+    })
+  }
+
+  handleTransferButton() {
+    const RDC = contract(RDCContract)
+    RDC.setProvider(this.state.web3.currentProvider)
+
+    var rdcInstance
+
+    this.state.web3.eth.getAccounts(async (err, accounts) => {
+      if(err) {
+        console.error(err)
+      } else {
+        rdcInstance = await RDC.deployed()
+        const val = rdcInstance.transfer(this.state.toAddress, this.state.web3.toWei(this.state.transferAmount), { from: accounts[0] })
+        console.log(val)
+        this.setState({ toAddress: '', transferAmount: '' })
       }
     })
   }
@@ -278,36 +284,8 @@ class App extends Component {
     })
   }
 
-  
-
   render() {
     console.log('latestRates', this.state.latestRates)
-
-    // let cashOutButton
-    // if (this.state.state === "Liquidating") {
-    //   cashOutButton = <button onClick={this.handleCashOutButton}>Claim equitable cashout</button>
-    // }
-
-    // let cashoutArea
-    // if (this.state.state === "Liquidating") {
-    //   cashoutArea = <div>Contract is liquidating - You can now withdraw your share of funds
-    //                   <div>Liquidation block number: {this.state.liquidationBlockNumber}</div>
-    //                   <div>Liquidation block wait time: {this.state.blockWaitTime}</div>
-    //                   <button onClick={this.handleCashOutButton}>Claim equitable cashout</button>
-    //                 </div>
-    // }
-
-    // let ownerArea
-    // if (this.state.userIsOwner) {
-    //   ownerArea = <div>Welcome to the secret Owner area :)
-    //                 <br /><br />
-    //                 <button onClick={this.handleUnlockMutex} disabled={!this.state.txLockMutex}>Unlock txLockMutex - only active if txLockMutex is LOCKED</button>
-    //                 <br /><br />
-    //                 <button onClick={this.handleEquitableLiquidation}>Trigger equitable liquidation</button>
-    //                 <br /><br />
-    //                 <button onClick={this.handleNextBlock}><strong>Mine a block</strong></button>
-    //               </div>
-    // }
 
     return (
       <div style={{ height: '100vh', display: 'flex', flexDirection: 'column'}}>
@@ -337,8 +315,10 @@ class App extends Component {
                   <Header size='huge'>Actions</Header>
                   <Form>
                     <Form.Input
-                      type="numeric"
-                      name="userPegInValue"
+                      label='ETH Amount'
+                      placeholder='0.00'
+                      type='numeric'
+                      name='userPegInValue'
                       value={this.state.userPegInValue}
                       onChange={this.handleChange}
                       disabled={this.state.state === 'Liquidating' && (this.state.lastBlockNumber < (this.state.liquidationBlockNumber + this.state.blockWaitTime))}
@@ -351,8 +331,10 @@ class App extends Component {
                       }}
                     />
                     <Form.Input
-                      type="numeric"
-                      name="userPegOutValue"
+                      label='RDC Amount'
+                      placeholder='0.00'
+                      type='numeric'
+                      name='userPegOutValue'
                       value={this.state.userPegOutValue}
                       onChange={this.handleChange}
                       disabled={this.state.state !== 'Active' || this.state.userAcctBalance === 0}
@@ -364,6 +346,38 @@ class App extends Component {
                         onClick: this.handlePegOutButton,
                       }}
                     />
+                    <Form.Group widths='equal'>
+                      <Form.Input
+                        fluid
+                        label='Address to Transfer RDC'
+                        placeholder='0x...'
+                        type='text'
+                        name='toAddress'
+                        value={this.state.toAddress}
+                        onChange={this.handleChange}
+                        disabled={this.state.userAcctBalance === 0}
+                      />
+                      <Form.Input
+                        fluid
+                        label='Amount of RDC to Transfer'
+                        placeholder='0.00'
+                        type='numeric'
+                        name='transferAmount'
+                        value={this.state.transferAmount}
+                        onChange={this.handleChange}
+                        disabled={this.state.userAcctBalance === 0}
+                      />
+                      <Form.Button
+                        fluid
+                        label='Submit Transfer Request'
+                        floated='right'
+                        onClick={this.handleTransferButton}
+                        content='Transfer'
+                        disabled={this.state.userAcctBalance === 0}
+                      />
+                      
+                    </Form.Group>
+
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <Button
                         disabled={this.state.state !== 'Liquidating' || this.state.userAcctBalance === 0}

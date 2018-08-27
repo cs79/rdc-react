@@ -88,7 +88,7 @@ contract TestRDC {
         @dev This functionality is inherited from elements of the OpenZeppelin package (ERC20Basic interface, BasicToken contract)
         @dev This test covers the transfer() function
      */
-    function testRDCContractTransfer() public {
+    function testRDCTransfer() public {
         address _add1 = address(this);
         address _add2 = DeployedAddresses.RDC();
         
